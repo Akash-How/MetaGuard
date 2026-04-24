@@ -55,6 +55,7 @@ class McpAgent:
 
     def _init_groq_client(self):
         keys = self.settings.groq_api_key_list
+        runtime_logger.info(f"GROQ_DEBUG: Found {len(keys)} keys in settings.")
         if not keys:
             runtime_logger.error("No Groq API keys found in settings.")
             self.groq_client = None
@@ -62,8 +63,9 @@ class McpAgent:
         
         idx = self._current_groq_idx % len(keys)
         selected_key = keys[idx]
+        # Only log the prefix for security
+        runtime_logger.info(f"Initialized Groq client with key starting with: {selected_key[:7]}...")
         self.groq_client = Groq(api_key=selected_key)
-        runtime_logger.info(f"Initialized Groq client with key index {idx}")
 
     async def _get_config(self) -> dict:
         if not os.path.exists(self.config_path):
