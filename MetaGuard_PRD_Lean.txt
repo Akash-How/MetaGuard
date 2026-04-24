@@ -1,0 +1,533 @@
+﻿PRODUCT REQUIREMENTS DOCUMENT
+MetaGuard
+Discover  ·  Understand  ·  Protect  ·  Assess
+Unified data intelligence on OpenMetadata — 4 modules — solo build
+Stack: FastAPI · React · Python SDK · Claude API · OpenMetadata MCP
+Tracks: T-01 · T-02 · T-04 · T-06  |  April 2026
+
+
+Field
+Value
+Product
+MetaGuard
+Version
+1.0 — Hackathon
+Backend
+FastAPI + Python 3.11 + openmetadata-ingestion 1.4.0
+Frontend
+React 18 + shadcn/ui + Recharts + Axios
+AI
+Claude API — haiku-4-5 (default) · sonnet-4-6 (Passport only)
+Data source
+OpenMetadata sandbox.open-metadata.org
+Deploy
+Railway (backend) · Vercel (frontend)
+
+
+1. What Is MetaGuard
+MetaGuard sits on top of OpenMetadata and gives data teams four superpowers: find dead assets wasting money, generate plain-English docs for any table, get alerts before schema changes break pipelines, and calculate the blast radius of any proposed change. Everything reads from OpenMetadata. No separate database. One shared Python API client. One React dashboard.
+
+Core insight
+OpenMetadata already holds all the intelligence a data team needs — lineage, schema versions, quality scores, usage stats, ownership, profiling, glossary. MetaGuard is the actionable surface layer on top of it.
+
+
+2. Architecture
+2.1 Layers
+Layer
+Tech
+Role
+Data
+OpenMetadata (sandbox)
+Single source of truth for all metadata
+Backend
+FastAPI + Python 3.11
+4 module routers, shared core engine
+Core engine
+om_client.py
+One shared API client imported by all 4 modules
+AI
+Anthropic Claude API
+Plain-English generation, alert summaries, chat
+Frontend
+React + shadcn/ui
+4-tab dashboard + AI chat strip
+Deploy
+Railway + Vercel
+Public URLs for judge access
+
+2.2 Folder Structure
+Project layout
+metaguard/
+  backend/
+    main.py            ← FastAPI entry, mounts all 4 routers
+    om_client.py       ← shared OpenMetadata SDK client
+    llm.py             ← shared Claude API calls
+    modules/
+      dead_data.py     ← Module 1
+      passport.py      ← Module 2
+      storm_warning.py ← Module 3
+      blast_radius.py  ← Module 4
+    .env               ← never commit
+    requirements.txt
+  frontend/
+    src/
+      App.jsx
+      views/  ← DeadData.jsx, Passport.jsx, StormWarning.jsx, BlastRadius.jsx
+      components/  ← TabNav.jsx, AssetCard.jsx, AlertBadge.jsx, ChatStrip.jsx
+
+2.3 Shared om_client.py — All Modules Import This
+API methods (write once, used by all 4 modules)
+get_table(fqn)             → schema, columns, description, tags
+get_lineage(fqn, depth)    → upstream + downstream graph
+get_usage(fqn)             → query count, last query timestamp
+get_quality(fqn)           → test results, pass/fail rates
+get_profiling(fqn)         → row count, byte size, freshness
+get_schema_versions(fqn)   → full version history, diffs
+get_owner(fqn)             → owner name, contact, team
+get_glossary(term)         → business definition for a term
+list_all_tables()          → full asset inventory
+list_all_pipelines()       → all registered pipelines
+
+2.4 Shared llm.py
+Single function, model is a parameter
+def generate(system_prompt, user_content, model='claude-haiku-4-5-20251001', max_tokens=1024):
+    # Haiku = default for all modules
+    # Sonnet = Data Passport only (model='claude-sonnet-4-6')
+    return anthropic.Anthropic().messages.create(...).content[0].text
+
+2.5 .env Variables
+Variable
+Value / Source
+OPENMETADATA_HOST
+https://sandbox.open-metadata.org
+OPENMETADATA_JWT_TOKEN
+From sandbox profile → Access Token
+ANTHROPIC_API_KEY
+From console.anthropic.com → API Keys
+POLL_INTERVAL_SECONDS
+60
+LINEAGE_DEPTH
+10
+CACHE_TTL_MINUTES
+15
+DEAD_DATA_THRESHOLD_DAYS
+90
+COST_PER_GB_MONTH
+0.023
+
+
+3. Module 1 — Dead Data Undertaker
+Scans all registered assets, classifies dead ones into 4 categories, estimates monthly cost waste, and validates safety before deletion. Output is a prioritised kill list.
+
+3.1 Sub-Modules
+3.1.1 Asset Scanner
+Calls list_all_tables() + list_all_pipelines(). For each asset fires: get_usage(), get_profiling(), get_lineage(), get_owner() in parallel via asyncio.gather(). Assembles raw asset record for classifier.
+3.1.2 Dead-Asset Classifier
+Category
+Detection Logic
+Orphan
+Owner null OR owner account inactive. Zero queries in 90d. Zero downstream lineage consumers.
+Zombie
+Pipeline runs on schedule and writes to table. Table has zero downstream consumers. Zero queries in 60d.
+Duplicate
+Column fingerprint (sorted column name+type set) matches another table. Both have active owners.
+Stale
+Zero new rows in 90d (profiling trend). Zero queries in 60d. Has active owner. Lower urgency.
+3.1.3 Cost Estimator
+Monthly storage cost = profiling.byte_size / 1GB * COST_PER_GB_MONTH. Zombie pipelines add compute cost = avg_run_duration_hours * pipeline_credit_rate. Total displayed as headline $ figure.
+3.1.4 Safe-Delete Validator
+Before marking safe-to-delete: calls get_lineage(fqn, depth=5) and confirms zero downstream assets. Also checks asset is not referenced in any active quality test suite. If either check finds a dependency → flag as 'Review Required' not 'Safe to Delete'. Surfaced in UI with the dependency named.
+
+3.2 API Endpoints
+Endpoint
+Method
+Returns
+/dead-data/scan
+GET
+Full classified asset list with cost estimates
+/dead-data/asset/{fqn}
+GET
+Detail report for single asset
+/dead-data/validate/{fqn}
+POST
+Safe-delete validation result
+/dead-data/summary
+GET
+Total waste $ + category breakdown
+
+3.3 Key Edge Cases
+Edge Case
+Handling
+Asset has no usage data
+If &lt;30d old → Stale candidate. If &gt;90d old + no owner activity → Orphan candidate.
+Lineage graph incomplete
+Show 'Lineage coverage: partial' warning. Block safe-delete until manually confirmed.
+Owner left company
+Escalate to team lead contact if available in Teams API. Otherwise flag as unowned.
+Profiling data missing
+Cost shown as 'Unknown'. Asset still shown in kill list with note to run profiling.
+Asset flagged but intentionally dead
+User annotates with OpenMetadata custom property 'intentional_duplicate'. MetaGuard respects tag, excludes from kill list.
+
+
+4. Module 2 — Data Passport
+Takes a table FQN, fires 7 parallel OpenMetadata API calls, calculates a trust score, passes everything to Claude Sonnet, returns a plain-English document anyone can understand in 30 seconds.
+
+4.1 Sub-Modules
+4.1.1 Metadata Aggregator
+asyncio.gather() fires all 7 calls simultaneously: get_table(), get_quality(), get_lineage(), get_usage(), get_profiling(), get_owner(), get_glossary(). Timeout = 5s per call. Any timeout → null result with visible gap indicator in UI. Never fails entirely.
+4.1.2 Trust Score Calculator
+Signal
+Weight
+Source
+Quality test pass rate
+40%
+get_quality()
+Profiling freshness (hours since last run)
+25%
+get_profiling()
+Owner assigned + active
+15%
+get_owner()
+Documentation completeness
+10%
+get_table() — description on table + columns
+Lineage completeness (has upstream + downstream)
+10%
+get_lineage()
+4.1.3 LLM Passport Generator
+Model: claude-sonnet-4-6. System prompt instructs 5 output sections:
+Plain-English summary (2 sentences — what this table is and why it exists)
+Lineage story (where data comes from, where it goes, in conversational language)
+Column guide (plain-English definition per column, using glossary terms where mapped)
+Known issues (any failing quality tests described in non-technical language)
+Contact (owner name + suggested message template for data questions)
+4.1.4 Passport Cache
+In-memory dict. Key = FQN. TTL = 15 min. Invalidated immediately if Storm Warning detects a schema change for that table.
+4.1.5 MCP Exposure
+Entire Passport pipeline exposed as one MCP tool on OpenMetadata's MCP server. Engineers in Claude Code or Cursor can call 'what is {table}?' from inside their IDE without opening MetaGuard UI.
+
+4.2 API Endpoints
+Endpoint
+Method
+Returns
+/passport/{fqn}
+GET
+Full generated Passport with trust score
+/passport/{fqn}/trust-score
+GET
+Score breakdown only (no LLM, fast)
+/passport/mcp
+POST
+MCP-compatible endpoint for AI agent calls
+
+4.3 Key Edge Cases
+Edge Case
+Handling
+Table has no columns (schema not ingested yet)
+Passport renders with 'Schema not ingested' banner. Trust score = 0. LLM generation skipped.
+Claude API unavailable / rate-limited
+Structured fields still render (trust score, lineage, usage). LLM sections show 'AI summary temporarily unavailable'.
+No lineage captured
+Lineage section shows 'No lineage — may be a source table or lineage ingestion not run'. Does not fail.
+Table has 500+ columns
+Column guide truncated to top 50 by usage frequency. Shows '+ N more columns'.
+Glossary term ID not found (stale reference)
+Column renders without glossary mapping. Null handled gracefully.
+
+
+5. Module 3 — Schema Storm Warning
+Background thread polls OpenMetadata schema version history every 60 seconds. On change detected: classifies severity, traces downstream, generates alert, pushes to frontend via polling. Entire flow completes within 60 seconds of ingestion.
+
+5.1 Sub-Modules
+5.1.1 Schema Version Watcher
+Maintains dict of {fqn: last_version_hash}. Every 60s calls get_schema_versions() for all watched assets. Hash mismatch triggers change event. Reconstructs exact diff: which columns added / renamed / type-changed / dropped.
+5.1.2 Change Classifier
+Severity
+Trigger
+Critical
+Column dropped or renamed. Guaranteed to break downstream consumers referencing that column.
+High
+Column type narrowed (STRING→INT, FLOAT→INT). Risk of silent data corruption.
+Medium
+Type widened (INT→BIGINT) or new NOT NULL column added without default.
+Low
+New nullable column added, description changed, tag added. Additive, unlikely to break.
+Info
+Stats refreshed, profiling run, ownership changed. No structural change.
+5.1.3 Downstream Impact Tracer
+For Critical and High: calls get_lineage(fqn, depth=10). Assembles full consumer list with entity type (table/pipeline/dashboard/ML model), owner, and next scheduled run time (extrapolated from pipeline execution history). Deduplicates by FQN. Shows shortest dependency path to each consumer.
+5.1.4 Alert Generator
+Model: claude-haiku-4-5. Generates short alert summary: what changed in plain English, highest-risk consumer + time-to-failure, owner name, specific suggested fix. Alert assigned unique ID, stored in memory, pushed to frontend.
+5.1.5 Alert Feed
+Frontend polls GET /storm/alerts every 10 seconds. Simpler than SSE — same visual result. Alerts sorted by severity then time. Each card expandable to show full downstream list and suggested fix.
+
+5.2 API Endpoints
+Endpoint
+Method
+Returns
+/storm/alerts
+GET
+Paginated alert history for current session
+/storm/alert/{id}
+GET
+Full detail for one alert including downstream list
+/storm/simulate
+POST
+Simulates a schema change (demo + testing)
+/storm/watched
+GET
+All monitored assets
+
+5.3 Key Edge Cases
+Edge Case
+Handling
+Hash mismatch but schema unchanged (API inconsistency)
+Secondary check compares column names + types structurally. Structural match overrides hash mismatch. No false alert fired.
+Cyclic lineage graph
+BFS uses visited-set. Revisited nodes skipped. Cycles logged and surfaced in alert.
+Two changes to same asset in one poll interval
+Watcher captures final state only. One event fires showing cumulative diff from last known version.
+Pipeline schedule not in OpenMetadata
+Time-to-failure shown as 'Unknown — pipeline schedule not tracked'. Alert still fires with all other fields.
+Asset renamed (FQN changes)
+Old FQN disappears → watcher fires 'Possible rename' info alert. Removes old FQN from watch list. New FQN treated as new asset.
+
+
+6. Module 4 — Lineage Blast Radius
+Takes any entity (table or column), traverses the lineage graph, produces a risk-scored impact report with categorised downstream consumers. Answers: 'If I change this, exactly what breaks and how badly?'
+
+6.1 Sub-Modules
+6.1.1 Entity Input Handler
+Accepts two entity types: Table (FQN) and Column (FQN + column name). For column inputs: resolves parent table FQN first, then filters lineage results to assets that directly reference that specific column via column-level lineage. Falls back to table-level if column-level lineage not available.
+6.1.2 Lineage Graph Traverser
+BFS traversal downstream from input entity. Default depth = 10 hops, max = 25. At each hop collects: entity type, FQN, display name, owner, quality score, usage frequency, next run time. Also traverses 5 hops upstream for context. Uses visited-set to handle cycles.
+6.1.3 Risk Scoring Engine
+Per affected asset, 0-100 score from 3 signals:
+Usage frequency from get_usage() — high-traffic assets score higher
+Proximity in graph — direct consumers score higher than 5th-hop consumers
+Quality status from get_quality() — already-failing assets score higher (fragile baseline)
+Overall Blast Radius score = sum of individual scores normalised to 100.
+6.1.4 Impact Categoriser
+Tier
+Definition
+Direct Impact
+Assets that directly consume the changed entity. Break immediately on next run.
+Indirect Impact
+2-4 hops downstream. Break after their direct suppliers fail.
+Potential Impact
+5+ hops. May or may not break depending on intermediate fallback logic.
+Monitoring Impact
+Dashboards and alerts consuming affected tables. Users see stale/incorrect data.
+
+6.2 API Endpoints
+Endpoint
+Method
+Returns
+/blast-radius/table/{fqn}
+GET
+Full blast radius report for table
+/blast-radius/column/{fqn}/{column}
+GET
+Column-level blast radius
+/blast-radius/risk-score/{fqn}
+GET
+Risk score only (fast, cached)
+
+6.3 Key Edge Cases
+Edge Case
+Handling
+No downstream nodes (terminal asset)
+Report shows 'No downstream consumers'. Risk score = 0.
+Column-level lineage not available
+Falls back to table-level with banner: 'Column lineage not available — showing table-level impact'.
+100+ downstream nodes
+Show top 20 by risk score. Total count shown. Full list in JSON response.
+Same asset in multiple lineage paths (diamond dependency)
+Deduped by FQN. Risk contribution counted once using shortest-path hop count.
+Cyclic lineage
+BFS visited-set. Fallback to BFS ordering in impact tier with warning shown.
+
+
+7. Unified AI Chat
+Persistent chat strip at bottom of dashboard. Context-aware: user prefixes question with module name ('In Dead Data: why is orders_backup flagged?'). Backend loads relevant metadata into Claude system prompt before responding.
+
+Module prefix
+What gets loaded into context
+Model
+In Dead Data:
+Flagged asset metadata, cost estimate, lineage validation result
+haiku-4-5
+In Passport:
+Full assembled metadata object for the currently-viewed table
+sonnet-4-6
+In Storm:
+Active alert object including downstream list and change diff
+haiku-4-5
+In Blast:
+Full impact report for the currently-viewed entity
+haiku-4-5
+
+
+8. OpenMetadata API Usage Matrix
+API Method
+Dead Data
+Passport
+Storm
+Blast Radius
+list_all_tables()
+✓
+
+
+
+list_all_pipelines()
+✓
+
+
+✓
+get_table()
+✓
+✓
+✓
+✓
+get_lineage()
+✓
+✓
+✓
+✓
+get_usage()
+✓
+✓
+
+✓
+get_quality()
+✓
+✓
+
+✓
+get_profiling()
+✓
+✓
+
+
+get_schema_versions()
+
+
+✓
+✓
+get_owner()
+✓
+✓
+✓
+✓
+get_glossary()
+
+✓
+
+
+
+
+9. 10-Day Build Plan (Solo)
+Day
+Task
+Done When
+1
+Sandbox connected, om_client.py all 10 methods tested, FastAPI skeleton up
+4 connection tests pass
+2
+Dead Data: scanner + classifier + cost estimator + REST endpoints
+/dead-data/scan returns kill list
+3
+Dead Data: safe-delete validator + DeadData.jsx tab rendering
+UI shows kill list with $ figures
+4
+Passport: metadata aggregator + trust score + LLM generator
+/passport/{fqn} returns full passport JSON
+5
+Passport: cache + MCP endpoint + Passport.jsx tab
+Type table name, passport renders
+6
+Storm Warning: watcher + classifier + impact tracer + alert generator
+Simulate endpoint fires alert
+7
+Storm Warning: frontend polling + StormWarning.jsx + alert cards
+Alert appears on screen within 60s
+8
+Blast Radius: traverser + risk scoring + categoriser + BlastRadius.jsx
+Full blast radius report renders
+9
+AI Chat: ChatStrip.jsx + context loading + all 4 tabs wired in App.jsx
+Chat answers questions correctly
+10
+Polish: error states, loading skeletons, README, deploy Railway + Vercel
+Public URL accessible to judges
+
+
+10. Tech Stack & Prerequisites
+10.1 Python Packages (requirements.txt)
+Package
+Version
+Purpose
+fastapi
+0.115.0
+Backend framework
+uvicorn
+0.30.0
+ASGI server
+openmetadata-ingestion
+1.4.0
+Official OpenMetadata Python SDK
+anthropic
+0.28.0
+Claude API SDK
+httpx
+0.27.0
+Async HTTP for parallel API calls
+python-dotenv
+1.0.0
+Load .env automatically
+pydantic
+2.7.0
+Data validation (used by FastAPI)
+
+10.2 Frontend Packages
+Package
+Purpose
+@shadcn/ui
+Pre-built components — no CSS writing
+lucide-react
+Icons
+recharts
+Cost savings charts
+axios
+HTTP calls to FastAPI backend
+tailwindcss
+Utility CSS — bundled with shadcn
+
+10.3 Model Selection
+Module
+Model
+Reason
+Data Passport
+claude-sonnet-4-6
+Narrative generation — showpiece feature, judges read this closely
+Dead Data, Storm, Blast, Chat (simple)
+claude-haiku-4-5-20251001
+Structured output tasks — fast + cheap
+Chat (complex synthesis)
+claude-sonnet-4-6
+Only when context includes Passport data
+
+
+11. Known Limitations (Hackathon Scope)
+All state is in-memory — alerts, cache, audit log reset on backend restart. Redis/SQLite for production.
+Cost estimator defaults to Snowflake Standard tier pricing. Configurable via .env.
+Column-level blast radius requires column-level lineage to be ingested. Falls back to table-level silently.
+Owner notifications are generated as text in the UI for manual copying. No Slack/email delivery.
+Storm Warning uses 60s polling. Production would use OpenMetadata webhooks for sub-second latency.
+No user authentication — JWT token is a backend environment variable. Inherited from OpenMetadata RBAC.
+No persistent audit log — session only.
+
+
+MetaGuard PRD v1.0  ·  WeMakeDevs × OpenMetadata Hackathon  ·  April 2026
+
