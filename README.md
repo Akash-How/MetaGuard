@@ -2,7 +2,7 @@
 
 **Discover · Understand · Protect · Assess**
 
-Unified data intelligence on OpenMetadata — an agentic AI platform that turns metadata into action.
+Unified data intelligence on OpenMetadata - an agentic AI platform that turns metadata into action.
 
 ## Overview
 
@@ -10,7 +10,7 @@ Unified data intelligence on OpenMetadata — an agentic AI platform that turns 
 
 MetaGuard is a production-grade data governance platform built on top of [OpenMetadata](https://open-metadata.org). It provides data teams with four superpowers: find dead assets wasting money, generate plain-English summaries for any table, get alerts before schema changes break pipelines, and calculate the blast radius of any proposed change. Everything reads from OpenMetadata. No separate database. One shared Python API client. One React dashboard.
 
-- **Agentic AI**: An MCP-powered orchestrator that chains tools autonomously — scan, analyze, export to Google Sheets, and post to Slack — all from a single natural language command.
+- **Agentic AI**: An MCP-powered orchestrator that chains tools autonomously - scan, analyze, export to Google Sheets, and post to Slack - all from a single natural language command.
 - **Zero-Copy Architecture**: Everything reads from OpenMetadata. No separate database. One shared Python API client. One React dashboard.
 - **Production-Ready**: Deployed on Railway (backend) and Vercel (frontend) with Groq-powered Llama 3.3 70B for ultra-low latency AI responses.
 
@@ -23,30 +23,30 @@ MetaGuard is a production-grade data governance platform built on top of [OpenMe
 
 ## Core Modules
 
-### 🔍 Dead Data Finder
+### Dead Data Finder
 Scans every table in OpenMetadata for unused, duplicate, orphan, and stale assets. Calculates monthly cloud cost estimates and flags safe-to-delete candidates. Surfaces cost-savings opportunities that are invisible in raw metadata.
 
-### 📜 Data Passport
-Generates a comprehensive "passport" for any data asset — a single-page business and technical summary. Includes a composite Trust Score (0–100) derived from five pillars: Quality, Freshness, Ownership, Documentation, and Lineage.
+### Data Passport
+Generates a comprehensive passport for any data asset - a single-page business and technical summary. Includes a composite Trust Score (0-100) derived from five pillars: Quality, Freshness, Ownership, Documentation, and Lineage.
 
 ![Data Passport Diagnostic Profile](demo/screenshots/diagnostic_profile.png)
 
-### ⛈️ Storm Warning Center
-Real-time alerts for schema drift, freshness SLA breaches, and quality regressions. Monitors all assets and surfaces actionable incidents ranked by severity — before they cascade into downstream failures.
+### Storm Warning Center
+Real-time alerts for schema drift, freshness SLA breaches, and quality regressions. Monitors all assets and surfaces actionable incidents ranked by severity - before they cascade into downstream failures.
 
 ![Root Cause Hub Incident Analysis](demo/screenshots/root_cause_hub.png)
 
-### 💥 Blast Radius Analyzer
-Calculates the downstream impact of any proposed change to a data asset. Traverses the full lineage graph to identify every affected pipeline, dashboard, and consumer — with a risk score and hop-distance breakdown.
+### Blast Radius Analyzer
+Calculates the downstream impact of any proposed change to a data asset. Traverses the full lineage graph to identify every affected pipeline, dashboard, and consumer - with a risk score and hop-distance breakdown.
 
 ![Lineage Blast Radius Graph](demo/screenshots/blast_radius_graph.png)
 
-#### 🛡️ Production Surveillance & Change Simulation
-MetaGuard allows operators to simulate changes (like a column drop) and immediately visualize the downstream "Blast Radius" before the change is even committed to production.
+#### Production Surveillance & Change Simulation
+MetaGuard allows operators to simulate changes (like a column drop) and immediately visualize the downstream Blast Radius before the change is even committed to production.
 
 ![Surveillance Simulation](demo/screenshots/surveillance_simulation.png)
 
-### 🤖 MetaGuard AI Orchestrator (MCP Agent)
+### MetaGuard AI Orchestrator (MCP Agent)
 A multi-tool agentic loop powered by the Model Context Protocol. The orchestrator can autonomously:
 1. Search and analyze OpenMetadata entities
 2. Generate Data Passports and Dead Data reports
@@ -104,7 +104,7 @@ flowchart TD
 1. **User Query**: The React frontend sends a natural language command to the FastAPI backend.
 2. **Agent Loop**: The MCP Agent constructs a tool-use plan and iteratively calls MCP tools.
 3. **Tool Execution**: Each tool (passport, dead data, blast radius, etc.) queries OpenMetadata via the shared API client.
-4. **Cross-Tool Chaining**: The agent can chain results — e.g., `list_dead_data` → `create_google_sheet` → `post_to_slack_with_link`.
+4. **Cross-Tool Chaining**: The agent can chain results - e.g., list_dead_data -> create_google_sheet -> post_to_slack_with_link.
 5. **Response Synthesis**: The LLM synthesizes all tool outputs into a concise, actionable response.
 
 ---
@@ -211,7 +211,7 @@ npm run dev                                       # Starts on http://localhost:5
 
 | Track | Coverage |
 |-------|----------|
-| **T-01**: Build on OpenMetadata | Core platform — all data sourced from OM APIs |
+| **T-01**: Build on OpenMetadata | Core platform - all data sourced from OM APIs |
 | **T-02**: AI/ML for Data Governance | MCP Agent with autonomous tool chaining |
 | **T-04**: Data Quality & Observability | Storm Warning, Trust Score, Freshness SLA |
 | **T-06**: Data Discovery & Cataloging | Dead Data Finder, Search, Data Passport |
@@ -220,11 +220,11 @@ npm run dev                                       # Starts on http://localhost:5
 
 ## Key Design Decisions
 
-- **MCP over Raw API Calls**: Using Model Context Protocol gives the AI agent structured, typed tool access — making it debuggable, extensible, and safe for governance use cases.
+- **MCP over Raw API Calls**: Using Model Context Protocol gives the AI agent structured, typed tool access - making it debuggable, extensible, and safe for governance use cases.
 - **Groq + Llama 3.3 70B**: Chosen for sub-second inference latency. API key rotation (comma-separated keys) handles rate limits gracefully.
-- **Composite Trust Score**: A weighted average of 5 independently measurable pillars — no single metric can mask a governance gap.
+- **Composite Trust Score**: A weighted average of 5 independently measurable pillars - no single metric can mask a governance gap.
 - **Zero-Copy from OpenMetadata**: Every insight is derived from live metadata. No ETL, no shadow database, no stale snapshots.
 
 ---
 
-Developed with ❤️ by **AKASH**
+Developed by **AKASH**
