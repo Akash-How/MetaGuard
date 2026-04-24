@@ -6,7 +6,9 @@ Unified data intelligence on OpenMetadata — an agentic AI platform that turns 
 
 ## Overview
 
-MetaGuard is a production-grade data governance platform built on top of [OpenMetadata](https://open-metadata.org). It provides data teams with four superpowers: find dead assets wasting money, generate plain-English summaries for any table, get alerts before schema changes break pipelines, and calculate the blast radius of any proposed change.
+![MetaGuard Landing Page](demo/screenshots/hero_landing.png)
+
+MetaGuard is a production-grade data governance platform built on top of [OpenMetadata](https://open-metadata.org). It provides data teams with four superpowers: find dead assets wasting money, generate plain-English summaries for any table, get alerts before schema changes break pipelines, and calculate the blast radius of any proposed change. Everything reads from OpenMetadata. No separate database. One shared Python API client. One React dashboard.
 
 - **Agentic AI**: An MCP-powered orchestrator that chains tools autonomously — scan, analyze, export to Google Sheets, and post to Slack — all from a single natural language command.
 - **Zero-Copy Architecture**: Everything reads from OpenMetadata. No separate database. One shared Python API client. One React dashboard.
@@ -27,11 +29,20 @@ Scans every table in OpenMetadata for unused, duplicate, orphan, and stale asset
 ### 📜 Data Passport
 Generates a comprehensive "passport" for any data asset — a single-page business and technical summary. Includes a composite Trust Score (0–100) derived from five pillars: Quality, Freshness, Ownership, Documentation, and Lineage.
 
+![Data Passport Diagnostic Profile](demo/screenshots/diagnostic_profile.png)
+
 ### ⛈️ Storm Warning Center
 Real-time alerts for schema drift, freshness SLA breaches, and quality regressions. Monitors all assets and surfaces actionable incidents ranked by severity — before they cascade into downstream failures.
 
 ### 💥 Blast Radius Analyzer
 Calculates the downstream impact of any proposed change to a data asset. Traverses the full lineage graph to identify every affected pipeline, dashboard, and consumer — with a risk score and hop-distance breakdown.
+
+![Lineage Blast Radius Graph](demo/screenshots/blast_radius_graph.png)
+
+#### 🛡️ Production Surveillance & Change Simulation
+MetaGuard allows operators to simulate changes (like a column drop) and immediately visualize the downstream "Blast Radius" before the change is even committed to production.
+
+![Surveillance Simulation](demo/screenshots/surveillance_simulation.png)
 
 ### 🤖 MetaGuard AI Orchestrator (MCP Agent)
 A multi-tool agentic loop powered by the Model Context Protocol. The orchestrator can autonomously:
@@ -113,6 +124,8 @@ flowchart TD
 ## Dashboard
 
 The 360° Dashboard provides a unified view of any data asset:
+
+![360 Dashboard Header](demo/screenshots/dashboard_stats.png)
 
 - **Trust Score**: Composite health metric from 5 governance pillars
 - **Reliability SLA**: Freshness compliance percentage
