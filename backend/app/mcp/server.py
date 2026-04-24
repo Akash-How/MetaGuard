@@ -37,15 +37,27 @@ storm_service = get_storm_warning_service()
 om_client = get_openmetadata_client()
 
 def _get_sheets_service():
-    """Helper to authenticate with Google Sheets API."""
-    creds_path = os.path.join(os.getcwd(), "google_credentials.json")
-    if not os.path.exists(creds_path):
-        raise FileNotFoundError(f"Google credentials not found at {creds_path}")
-    
+    """Helper to authenticate with Google Sheets API.
+    Supports both env var (for cloud/Railway) and file-based (for local dev) credentials.
+    """
+    import json
     scopes = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
     ]
+    
+    # Try environment variable first (for Railway / cloud)
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
+    if creds_json:
+        creds_data = json.loads(creds_json)
+        creds = service_account.Credentials.from_service_account_info(creds_data, scopes=scopes)
+        return build('sheets', 'v4', credentials=creds)
+    
+    # Fallback to local file
+    creds_path = os.path.join(os.getcwd(), "google_credentials.json")
+    if not os.path.exists(creds_path):
+        raise FileNotFoundError("Google credentials not configured. Set GOOGLE_CREDENTIALS_JSON env var or place google_credentials.json in the backend folder.")
+    
     creds = service_account.Credentials.from_service_account_file(creds_path, scopes=scopes)
     return build('sheets', 'v4', credentials=creds)
 
