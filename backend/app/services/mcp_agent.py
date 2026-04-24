@@ -211,6 +211,9 @@ class McpAgent:
 
         # Limit to 10 iterations to prevent infinite loops
         for _ in range(10):
+            if not self.groq_client:
+                return "MetaGuard Configuration Error: Your GROQ_API_KEY is missing or invalid on the server. Please check your Railway environment variables."
+                
             try:
                 response = self.groq_client.chat.completions.create(
                     model=self.settings.groq_model_default,
