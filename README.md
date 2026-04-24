@@ -34,6 +34,8 @@ Generates a comprehensive "passport" for any data asset — a single-page busine
 ### ⛈️ Storm Warning Center
 Real-time alerts for schema drift, freshness SLA breaches, and quality regressions. Monitors all assets and surfaces actionable incidents ranked by severity — before they cascade into downstream failures.
 
+![Root Cause Hub Incident Analysis](demo/screenshots/root_cause_hub.png)
+
 ### 💥 Blast Radius Analyzer
 Calculates the downstream impact of any proposed change to a data asset. Traverses the full lineage graph to identify every affected pipeline, dashboard, and consumer — with a risk score and hop-distance breakdown.
 
