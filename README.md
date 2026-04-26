@@ -123,7 +123,7 @@ flowchart TD
 
 ---
 
-## Dashboard
+## System Dashboard Blueprint
 
 The 360° Dashboard provides a unified view of any data asset:
 
