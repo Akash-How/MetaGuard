@@ -127,7 +127,7 @@ flowchart TD
 
 The 360° Dashboard provides a unified view of any data asset:
 
-![360 Dashboard Header](demo/screenshots/dashboard_stats.png)
+![System Dashboard Blueprint](demo/screenshots/system_dashboard_blueprint.png)
 
 - **Trust Score**: Composite health metric from 5 governance pillars
 - **Reliability SLA**: Freshness compliance percentage
